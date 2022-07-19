@@ -1,0 +1,106 @@
+class FindDevicesScreen extends StatelessWidget {
+  const FindDevicesScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            const Text('Find Devices'),
+            StreamBuilder<bool>(
+              stream: FlutterBluePlus.instance.isScanning,
+              initialData: false,
+              builder: (c, snapshot) {
+                if (snapshot.data!) {
+                  return IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => FlutterBluePlus.instance.stopScan(),
+                    color: Colors.red,
+                  );
+                } else {
+                  return IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () => FlutterBluePlus.instance
+                          .startScan(timeout: const Duration(seconds: 4)));
+                }
+              },
+            ),
+            const Spacer(
+              flex: 2,
+            ),
+            ElevatedButton(
+              child: const Text('TURN OFF'),
+              style: ElevatedButton.styleFrom(
+                primary: Colors.black,
+                onPrimary: Colors.white,
+              ),
+              onPressed: Platform.isAndroid
+                  ? () => FlutterBluePlus.instance.turnOff()
+                  : null,
+            ),
+          ],
+        ),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => FlutterBluePlus.instance
+            .startScan(timeout: const Duration(seconds: 4)),
+        child: SingleChildScrollView(
+          child: Column(
+            children: <Widget>[
+              StreamBuilder<List<BluetoothDevice>>(
+                stream: Stream.periodic(const Duration(seconds: 2))
+                    .asyncMap((_) => FlutterBluePlus.instance.connectedDevices),
+                initialData: const [],
+                builder: (c, snapshot) => Column(
+                  children: snapshot.data!
+                      .map((d) => ListTile(
+                            title: Text(d.name),
+                            subtitle: Text(d.id.toString()),
+                            trailing: StreamBuilder<BluetoothDeviceState>(
+                              stream: d.state,
+                              initialData: BluetoothDeviceState.disconnected,
+                              builder: (c, snapshot) {
+                                if (snapshot.data ==
+                                    BluetoothDeviceState.connected) {
+                                  //return Container();
+                                  // ElevatedButton(
+                                  //   child: const Text('OPEN'),
+                                  //   onPressed: () => Navigator.of(context).push(
+                                  //       MaterialPageRoute(
+                                  //           builder: (context) => HomePage(device: c.device,))),
+                                  // );
+                                }
+                                return Text(snapshot.data.toString());
+                              },
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ),
+              StreamBuilder<List<ScanResult>>(
+                stream: FlutterBluePlus.instance.scanResults,
+                initialData: const [],
+                builder: (c, snapshot) => Column(
+                  children: snapshot.data!
+                      .map(
+                        (r) => ScanResultTile(
+                          result: r,
+                          onTap: () => Navigator.of(context)
+                              .push(MaterialPageRoute(builder: (context) {
+                            r.device.connect();
+                            //return HomePage(device: r.device);
+                            return JoystickExample(device: r.device);
+                          })),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
